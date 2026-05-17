@@ -2,6 +2,10 @@
 
 Pocket Planetarium 是一个口袋星象馆：主界面用全屏 Canvas 展示真实亮星、太阳、月亮和可见行星，控制 dock 用于切换语言、设置观测地点/时间、管理星座线、标签和观测记录。
 
+在线访问：
+
+https://johb001.github.io/pocket-planetarium/
+
 ## 功能
 
 - 真实亮星星表：包含 Sirius、Vega、Polaris 等常见亮星。
@@ -44,6 +48,10 @@ npm run build
 ```
 
 构建流程会先执行 TypeScript 检查，再由 Vite 输出生产资源到 `dist/`。
+
+## 部署
+
+项目发布到 GitHub Pages，线上地址为 `https://johb001.github.io/pocket-planetarium/`。源码保留在 `master`，构建产物发布到 `gh-pages` 分支；发布前应依次运行 `npm test` 和 `npm run build`。Vite 的生产资源路径配置为 `/pocket-planetarium/`，用于匹配 GitHub Pages 的仓库子路径。
 
 ## 使用方式
 
