@@ -29,12 +29,28 @@ export interface RenderObservationThumbnailOptions {
   height: number;
 }
 
+export interface AtmosphereStar {
+  x: number;
+  y: number;
+  radius: number;
+  alpha: number;
+  hue: number;
+}
+
+export interface CreateAtmosphereStarsOptions {
+  width: number;
+  height: number;
+  rotation: number;
+  compact: boolean;
+}
+
 interface DrawSkyOptions extends RenderSkyOptions {
   compact: boolean;
 }
 
 const TAU = Math.PI * 2;
 const SKY_PADDING_RATIO = 0.08;
+const DOME_RADIUS_RATIO = 0.47;
 
 export function projectStar(
   star: Star,
@@ -103,6 +119,42 @@ export function renderObservationThumbnail(
   });
 }
 
+export function createAtmosphereStars(options: CreateAtmosphereStarsOptions): AtmosphereStar[] {
+  const width = Math.max(1, options.width);
+  const height = Math.max(1, options.height);
+  const starCount = options.compact
+    ? Math.round(Math.min(width, height) * 0.18)
+    : Math.round(Math.min(width, height) * 0.34);
+  const stars: AtmosphereStar[] = [];
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radiusX = width * DOME_RADIUS_RATIO;
+  const radiusY = height * 0.43;
+  const rotationSeed = Math.round(options.rotation * 1000);
+
+  for (let index = 0; stars.length < starCount && index < starCount * 8; index += 1) {
+    const angle = seededNoise(index, rotationSeed, 11) * TAU;
+    const distance = Math.sqrt(seededNoise(index, rotationSeed, 23));
+    const x = centerX + Math.cos(angle) * distance * radiusX;
+    const y = centerY + Math.sin(angle) * distance * radiusY;
+
+    if (!isInsideDome(x, y, width, height)) {
+      continue;
+    }
+
+    const brightness = seededNoise(index, rotationSeed, 37);
+    stars.push({
+      x: roundCanvasValue(x),
+      y: roundCanvasValue(y),
+      radius: roundCanvasValue(options.compact ? 0.35 + brightness * 0.75 : 0.42 + brightness * 1.05),
+      alpha: roundCanvasValue(0.12 + brightness * 0.52),
+      hue: Math.round(205 + seededNoise(index, rotationSeed, 43) * 48)
+    });
+  }
+
+  return stars;
+}
+
 function drawSky(ctx: CanvasRenderingContext2D, options: DrawSkyOptions): void {
   const width = Math.max(1, options.width);
   const height = Math.max(1, options.height);
@@ -117,7 +169,16 @@ function drawSky(ctx: CanvasRenderingContext2D, options: DrawSkyOptions): void {
   ctx.clearRect(0, 0, width, height);
   drawBackground(ctx, options.moment, width, height);
   drawHorizonGlow(ctx, options.moment, width, height);
+  drawSkyVignette(ctx, width, height);
   clipToDome(ctx, width, height);
+  drawMilkyWay(ctx, options.moment, width, height, options.compact);
+  drawAtmosphereStars(ctx, createAtmosphereStars({
+    width,
+    height,
+    rotation: options.moment.rotation,
+    compact: options.compact
+  }));
+  drawSkyGrid(ctx, width, height, options.compact);
 
   if (options.showConstellations ?? true) {
     drawConstellations(ctx, options.catalog, projectedStars, options.compact);
@@ -134,6 +195,10 @@ function drawSky(ctx: CanvasRenderingContext2D, options: DrawSkyOptions): void {
   }
 
   ctx.restore();
+
+  if (!options.compact) {
+    drawCompass(ctx, width, height);
+  }
 }
 
 function drawBackground(ctx: CanvasRenderingContext2D, moment: SkyMoment, width: number, height: number): void {
@@ -147,17 +212,121 @@ function drawBackground(ctx: CanvasRenderingContext2D, moment: SkyMoment, width:
 
 function drawHorizonGlow(ctx: CanvasRenderingContext2D, moment: SkyMoment, width: number, height: number): void {
   const glow = ctx.createRadialGradient(width / 2, height * 0.86, 0, width / 2, height * 0.86, width * 0.68);
-  glow.addColorStop(0, blendWithAlpha(moment.colors.glow, 0.42));
-  glow.addColorStop(0.5, blendWithAlpha(moment.colors.glow, 0.14));
+  const nightDepth = 1 - Math.abs(moment.value - 0.5) * 2;
+  const glowAlpha = 0.16 + nightDepth * 0.05;
+  glow.addColorStop(0, blendWithAlpha(moment.colors.glow, glowAlpha));
+  glow.addColorStop(0.5, blendWithAlpha(moment.colors.glow, glowAlpha * 0.34));
   glow.addColorStop(1, "rgba(255, 255, 255, 0)");
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, width, height);
 }
 
+function drawSkyVignette(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const vignette = ctx.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, Math.max(width, height) * 0.72);
+  vignette.addColorStop(0, "rgba(255, 255, 255, 0)");
+  vignette.addColorStop(0.42, "rgba(0, 0, 0, 0.05)");
+  vignette.addColorStop(0.78, "rgba(0, 0, 0, 0.34)");
+  vignette.addColorStop(1, "rgba(0, 0, 0, 0.78)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, width, height);
+}
+
 function clipToDome(ctx: CanvasRenderingContext2D, width: number, height: number): void {
   ctx.beginPath();
-  ctx.ellipse(width / 2, height / 2, width * 0.48, height * 0.44, 0, 0, TAU);
+  ctx.ellipse(width / 2, height / 2, width * DOME_RADIUS_RATIO, height * 0.43, 0, 0, TAU);
   ctx.clip();
+}
+
+function drawMilkyWay(ctx: CanvasRenderingContext2D, moment: SkyMoment, width: number, height: number, compact: boolean): void {
+  ctx.save();
+  ctx.translate(width / 2, height / 2);
+  ctx.rotate(moment.rotation * 0.42 - 0.62);
+  const bandWidth = compact ? height * 0.12 : height * 0.16;
+  const bandLength = width * 1.08;
+  const gradient = ctx.createLinearGradient(0, -bandWidth, 0, bandWidth);
+  gradient.addColorStop(0, "rgba(185, 205, 255, 0)");
+  gradient.addColorStop(0.34, compact ? "rgba(185, 205, 255, 0.026)" : "rgba(185, 205, 255, 0.038)");
+  gradient.addColorStop(0.5, compact ? "rgba(255, 236, 202, 0.035)" : "rgba(255, 236, 202, 0.065)");
+  gradient.addColorStop(0.66, compact ? "rgba(115, 208, 183, 0.024)" : "rgba(115, 208, 183, 0.035)");
+  gradient.addColorStop(1, "rgba(185, 205, 255, 0)");
+  ctx.fillStyle = gradient;
+  ctx.filter = compact ? "blur(10px)" : "blur(16px)";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, bandLength / 2, bandWidth, 0, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawAtmosphereStars(ctx: CanvasRenderingContext2D, stars: AtmosphereStar[]): void {
+  ctx.save();
+
+  for (const star of stars) {
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${star.hue}, 70%, 86%, ${star.alpha})`;
+    ctx.shadowBlur = star.radius > 1.1 ? star.radius * 2 : 0;
+    ctx.shadowColor = `hsla(${star.hue}, 80%, 88%, ${star.alpha * 0.7})`;
+    ctx.arc(star.x, star.y, star.radius, 0, TAU);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+function drawSkyGrid(ctx: CanvasRenderingContext2D, width: number, height: number, compact: boolean): void {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radiusX = width * DOME_RADIUS_RATIO;
+  const radiusY = height * 0.43;
+
+  ctx.save();
+  ctx.lineWidth = compact ? 0.5 : 0.8;
+  ctx.strokeStyle = compact ? "rgba(180, 215, 255, 0.08)" : "rgba(180, 215, 255, 0.14)";
+
+  for (const scale of [0.25, 0.5, 0.75]) {
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, radiusX * scale, radiusY * scale, 0, 0, TAU);
+    ctx.stroke();
+  }
+
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (index / 8) * TAU;
+    ctx.beginPath();
+    ctx.moveTo(centerX, centerY);
+    ctx.lineTo(centerX + Math.cos(angle) * radiusX, centerY + Math.sin(angle) * radiusY);
+    ctx.stroke();
+  }
+
+  ctx.strokeStyle = compact ? "rgba(255, 235, 192, 0.16)" : "rgba(255, 235, 192, 0.24)";
+  ctx.lineWidth = compact ? 0.8 : 1.2;
+  ctx.beginPath();
+  ctx.ellipse(centerX, centerY, radiusX, radiusY, 0, 0, TAU);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawCompass(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radiusX = width * DOME_RADIUS_RATIO;
+  const radiusY = height * 0.43;
+  const marks = [
+    { label: "N", x: centerX, y: centerY - radiusY - 17 },
+    { label: "E", x: centerX + radiusX + 18, y: centerY },
+    { label: "S", x: centerX, y: centerY + radiusY + 17 },
+    { label: "W", x: centerX - radiusX - 18, y: centerY }
+  ];
+
+  ctx.save();
+  ctx.font = "700 12px Inter, system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(246, 230, 190, 0.72)";
+
+  for (const mark of marks) {
+    ctx.fillText(mark.label, mark.x, mark.y);
+  }
+
+  ctx.restore();
 }
 
 function drawConstellations(
@@ -167,8 +336,8 @@ function drawConstellations(
   compact: boolean
 ): void {
   ctx.save();
-  ctx.lineWidth = compact ? 0.75 : 1.1;
-  ctx.strokeStyle = compact ? "rgba(189, 213, 255, 0.18)" : "rgba(189, 213, 255, 0.28)";
+  ctx.lineWidth = compact ? 0.65 : 0.9;
+  ctx.strokeStyle = compact ? "rgba(176, 204, 255, 0.16)" : "rgba(176, 204, 255, 0.24)";
 
   for (const constellation of catalog.constellations) {
     ctx.beginPath();
@@ -211,12 +380,34 @@ function drawStars(
     const alpha = 0.52 + star.magnitude * 0.42;
     const twinkle = 0.78 + Math.sin(star.x * 0.09 + star.y * 0.07) * 0.12;
 
+    ctx.save();
     ctx.beginPath();
-    ctx.fillStyle = `hsla(${star.hue}, 86%, ${compact ? 78 : 84}%, ${alpha * twinkle})`;
-    ctx.shadowBlur = compact ? radius * 1.2 : radius * 2.4;
+    ctx.fillStyle = `hsla(${star.hue}, 86%, 72%, ${Math.min(0.28, alpha * 0.2)})`;
+    ctx.shadowBlur = compact ? radius * 1.6 : radius * 6;
+    ctx.shadowColor = `hsla(${star.hue}, 90%, 78%, 0.56)`;
+    ctx.arc(star.x, star.y, radius * (compact ? 1.8 : 2.8), 0, TAU);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.beginPath();
+    ctx.fillStyle = `hsla(${star.hue}, 88%, ${compact ? 82 : 88}%, ${Math.min(1, alpha * twinkle)})`;
+    ctx.shadowBlur = compact ? radius * 1.4 : radius * 3.2;
     ctx.shadowColor = `hsla(${star.hue}, 90%, 82%, 0.62)`;
     ctx.arc(star.x, star.y, radius, 0, TAU);
     ctx.fill();
+
+    if (!compact && star.magnitude > 0.78) {
+      ctx.save();
+      ctx.strokeStyle = `hsla(${star.hue}, 88%, 88%, 0.28)`;
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(star.x - radius * 3.2, star.y);
+      ctx.lineTo(star.x + radius * 3.2, star.y);
+      ctx.moveTo(star.x, star.y - radius * 3.2);
+      ctx.lineTo(star.x, star.y + radius * 3.2);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   ctx.restore();
@@ -302,4 +493,24 @@ function blendWithAlpha(color: string, alpha: number): string {
   }
 
   return color;
+}
+
+function isInsideDome(x: number, y: number, width: number, height: number): boolean {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const radiusX = width * DOME_RADIUS_RATIO;
+  const radiusY = height * 0.43;
+  const normalizedX = (x - centerX) / radiusX;
+  const normalizedY = (y - centerY) / radiusY;
+
+  return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+}
+
+function seededNoise(index: number, seed: number, salt: number): number {
+  const value = Math.sin((index + 1) * 127.1 + seed * 31.7 + salt * 17.3) * 43758.5453;
+  return value - Math.floor(value);
+}
+
+function roundCanvasValue(value: number): number {
+  return Math.round(value * 1000) / 1000;
 }

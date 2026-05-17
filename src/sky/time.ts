@@ -3,9 +3,9 @@ import type { SkyMoment } from "../types";
 type Rgb = [number, number, number];
 
 const DUSK = {
-  zenith: [24, 31, 75] as Rgb,
-  horizon: [213, 96, 72] as Rgb,
-  glow: [255, 176, 92] as Rgb,
+  zenith: [5, 10, 32] as Rgb,
+  horizon: [28, 30, 48] as Rgb,
+  glow: [58, 70, 108] as Rgb,
 };
 
 const MIDNIGHT = {
@@ -15,9 +15,9 @@ const MIDNIGHT = {
 };
 
 const DAWN = {
-  zenith: [18, 35, 86] as Rgb,
-  horizon: [238, 142, 102] as Rgb,
-  glow: [255, 204, 136] as Rgb,
+  zenith: [7, 18, 52] as Rgb,
+  horizon: [42, 42, 66] as Rgb,
+  glow: [72, 86, 126] as Rgb,
 };
 
 export function clampNightValue(value: number): number {

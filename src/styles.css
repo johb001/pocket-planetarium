@@ -3,13 +3,13 @@
   font-family:
     Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
     sans-serif;
-  background: #06080b;
+  background: #020407;
   color: #f2ead8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  --dock-bg: rgba(18, 21, 24, 0.74);
-  --dock-line: rgba(238, 217, 177, 0.22);
+  --dock-bg: rgba(10, 14, 18, 0.54);
+  --dock-line: rgba(238, 217, 177, 0.16);
   --dock-strong: rgba(255, 235, 192, 0.9);
   --dock-muted: rgba(229, 221, 204, 0.68);
   --dock-accent: #f0b45a;
@@ -35,7 +35,8 @@ body,
 body {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #050607 0%, #0c0e10 52%, #19130e 100%);
+    radial-gradient(circle at 45% 35%, rgba(22, 41, 58, 0.22), transparent 38%),
+    linear-gradient(180deg, #010308 0%, #05070d 52%, #0b0909 100%);
 }
 
 button,
@@ -79,8 +80,58 @@ canvas,
   width: 100vw;
   height: 100dvh;
   max-width: none;
-  background: #050607;
+  background: #020407;
   touch-action: none;
+}
+
+.sky-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+.sky-readout {
+  position: fixed;
+  top: clamp(14px, 2.2vw, 28px);
+  left: clamp(14px, 2.2vw, 28px);
+  z-index: 5;
+  display: grid;
+  max-width: min(520px, calc(100vw - 28px));
+  gap: 5px;
+  padding: 10px 12px;
+  color: rgba(246, 232, 198, 0.88);
+  background: rgba(2, 5, 9, 0.22);
+  border: 1px solid rgba(238, 217, 177, 0.12);
+  border-radius: 8px;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sky-kicker,
+.sky-time,
+.selected-star {
+  margin: 0;
+}
+
+.sky-kicker {
+  color: rgba(115, 208, 183, 0.74);
+  font-size: 0.72rem;
+  font-weight: 740;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sky-time {
+  color: rgba(255, 240, 204, 0.92);
+  font-size: clamp(1.04rem, 0.95rem + 0.35vw, 1.28rem);
+  line-height: 1.05;
+}
+
+.selected-star {
+  color: rgba(232, 239, 255, 0.72);
+  font-size: 0.82rem;
+  line-height: 1.35;
 }
 
 .control-dock,
@@ -100,15 +151,15 @@ canvas,
   overflow: auto;
   color: var(--dock-strong);
   background:
-    linear-gradient(135deg, rgba(20, 24, 25, 0.82), rgba(11, 12, 12, 0.72)),
+    linear-gradient(135deg, rgba(12, 18, 22, 0.52), rgba(4, 6, 8, 0.48)),
     url("./assets/field-panel.png");
   background-size: cover;
-  background-blend-mode: multiply;
+  background-blend-mode: soft-light;
   border: 1px solid var(--dock-line);
   border-radius: 8px;
-  box-shadow: 0 18px 56px rgba(0, 0, 0, 0.42);
-  backdrop-filter: blur(16px) saturate(1.05);
-  -webkit-backdrop-filter: blur(16px) saturate(1.05);
+  box-shadow: 0 12px 42px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(14px) saturate(0.92);
+  -webkit-backdrop-filter: blur(14px) saturate(0.92);
   scrollbar-color: rgba(240, 180, 90, 0.58) rgba(255, 255, 255, 0.08);
   scrollbar-width: thin;
 }
@@ -249,8 +300,8 @@ textarea {
   min-height: 38px;
   min-width: 0;
   color: #f8efe0;
-  background: rgba(5, 7, 8, 0.58);
-  border: 1px solid rgba(238, 217, 177, 0.2);
+  background: rgba(2, 5, 8, 0.44);
+  border: 1px solid rgba(238, 217, 177, 0.16);
   border-radius: 7px;
   outline: none;
 }
@@ -297,8 +348,8 @@ input[type="radio"] {
   grid-auto-flow: column;
   gap: 2px;
   padding: 3px;
-  background: rgba(5, 7, 8, 0.48);
-  border: 1px solid rgba(238, 217, 177, 0.16);
+  background: rgba(2, 5, 8, 0.38);
+  border: 1px solid rgba(238, 217, 177, 0.12);
   border-radius: 8px;
 }
 
@@ -366,6 +417,13 @@ input[type="radio"] {
     max-height: 48dvh;
     padding: 10px;
     gap: 10px;
+  }
+
+  .sky-readout {
+    top: 10px;
+    left: 10px;
+    right: 10px;
+    max-width: none;
   }
 
   .dock-row,

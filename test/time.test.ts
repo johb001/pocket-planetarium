@@ -41,4 +41,23 @@ describe("getSkyMoment", () => {
     expect(colors.horizon).toMatch(rgbPattern);
     expect(colors.glow).toMatch(rgbPattern);
   });
+
+  it("keeps early evening dark enough to read as a starry sky", () => {
+    const { colors } = getSkyMoment(0.08);
+    const horizon = parseRgb(colors.horizon);
+    const glow = parseRgb(colors.glow);
+
+    expect(Math.max(...horizon)).toBeLessThanOrEqual(112);
+    expect(Math.max(...glow)).toBeLessThanOrEqual(150);
+  });
 });
+
+function parseRgb(value: string): [number, number, number] {
+  const match = value.match(/^rgb\((\d{1,3}), (\d{1,3}), (\d{1,3})\)$/);
+
+  if (!match) {
+    throw new Error(`Expected rgb() color, received ${value}`);
+  }
+
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
+}
