@@ -162,6 +162,50 @@ canvas,
   -webkit-backdrop-filter: blur(14px) saturate(0.92);
   scrollbar-color: rgba(240, 180, 90, 0.58) rgba(255, 255, 255, 0.08);
   scrollbar-width: thin;
+  opacity: 0;
+  transform: translateX(calc(100% + 28px));
+  transition:
+    opacity 180ms ease,
+    transform 220ms ease;
+  pointer-events: none;
+}
+
+.control-dock.is-open,
+[data-control-dock].is-open {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
+}
+
+.controls-toggle-button {
+  position: fixed;
+  right: clamp(12px, 2vw, 24px);
+  top: clamp(14px, 2.2vw, 28px);
+  z-index: 12;
+  min-width: 74px;
+  color: rgba(246, 232, 198, 0.92);
+  background: rgba(4, 8, 13, 0.48);
+  border-color: rgba(238, 217, 177, 0.16);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.controls-toggle-button[aria-expanded="true"] {
+  color: #16110b;
+  background: var(--dock-accent);
+}
+
+.dock-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dock-close-button {
+  min-height: 32px;
+  padding: 0.42rem 0.62rem;
 }
 
 .control-dock::-webkit-scrollbar,
@@ -417,6 +461,18 @@ input[type="radio"] {
     max-height: 48dvh;
     padding: 10px;
     gap: 10px;
+    transform: translateY(calc(100% + 18px));
+  }
+
+  .control-dock.is-open,
+  [data-control-dock].is-open {
+    transform: translateY(0);
+  }
+
+  .controls-toggle-button {
+    top: auto;
+    right: 10px;
+    bottom: calc(48dvh + 22px);
   }
 
   .sky-readout {

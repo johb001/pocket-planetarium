@@ -4,7 +4,8 @@ import { messages, type MessageKey } from "./i18n/messages";
 import { loadLocale, saveLocale, toggleLocale } from "./i18n/locale";
 import { createCatalogForSky } from "./sky/catalog";
 import { getSkyMoment } from "./sky/time";
-import { projectStar, renderSky } from "./sky/render";
+import { projectStar } from "./sky/render";
+import { createSkyDomeRenderer } from "./sky/render3d";
 import { findNearestStar, type StarHitPoint } from "./sky/hitTest";
 import { getSolarSystemObjects } from "./sky/solarSystem";
 import {
@@ -52,11 +53,16 @@ appRoot.innerHTML = `
       </div>
     </section>
 
-    <aside class="control-dock" data-control-dock>
+    <button type="button" class="controls-toggle-button" data-role="controls-toggle"></button>
+
+    <aside class="control-dock" data-control-dock aria-hidden="true">
       <div class="dock-row">
         <h2 data-i18n="appName"></h2>
-        <div class="segmented-control" data-segmented-control>
-          <button type="button" data-role="locale-toggle"></button>
+        <div class="dock-actions">
+          <div class="segmented-control" data-segmented-control>
+            <button type="button" data-role="locale-toggle"></button>
+          </div>
+          <button type="button" class="button-secondary dock-close-button" data-role="controls-close"></button>
         </div>
       </div>
 
@@ -121,15 +127,12 @@ appRoot.innerHTML = `
 `;
 
 const canvas = mustFind<HTMLCanvasElement>(".sky-canvas");
-const renderingContext = canvas.getContext("2d");
-
-if (!renderingContext) {
-  throw new Error("Pocket Planetarium could not create a 2D canvas context.");
-}
-
-const context = renderingContext;
+const skyRenderer = createSkyDomeRenderer(canvas);
 const timeLabel = mustFind<HTMLElement>('[data-role="time-label"]');
 const selectedStarLabel = mustFind<HTMLElement>('[data-role="selected-star"]');
+const controlDock = mustFind<HTMLElement>("[data-control-dock]");
+const controlsToggle = mustFind<HTMLButtonElement>('[data-role="controls-toggle"]');
+const controlsClose = mustFind<HTMLButtonElement>('[data-role="controls-close"]');
 const localeToggle = mustFind<HTMLButtonElement>('[data-role="locale-toggle"]');
 const citySelect = mustFind<HTMLSelectElement>('[data-role="city-select"]');
 const latitudeInput = mustFind<HTMLInputElement>('[data-role="latitude-input"]');
@@ -147,6 +150,7 @@ const observationList = mustFind<HTMLElement>('[data-role="observation-list"]');
 
 let canvasWidth = 1;
 let canvasHeight = 1;
+let controlsOpen = false;
 
 populateCitySelect();
 bindEvents();
@@ -165,6 +169,16 @@ function mustFind<T extends Element>(selector: string): T {
 }
 
 function bindEvents(): void {
+  controlsToggle.addEventListener("click", () => {
+    controlsOpen = true;
+    syncControls();
+  });
+
+  controlsClose.addEventListener("click", () => {
+    controlsOpen = false;
+    syncControls();
+  });
+
   localeToggle.addEventListener("click", () => {
     const locale = toggleLocale(state.locale);
     saveLocale(locale);
@@ -273,6 +287,11 @@ function syncControls(): void {
   constellationsToggle.checked = state.showConstellations;
   labelsToggle.checked = state.showLabels;
   errorMessage.textContent = state.errorMessage ?? "";
+  controlsToggle.textContent = text.settingsButton;
+  controlsToggle.setAttribute("aria-expanded", controlsOpen ? "true" : "false");
+  controlsClose.textContent = text.closeSettingsButton;
+  controlDock.classList.toggle("is-open", controlsOpen);
+  controlDock.setAttribute("aria-hidden", controlsOpen ? "false" : "true");
 }
 
 function populateCitySelect(): void {
@@ -336,7 +355,7 @@ function resizeCanvas(): void {
     canvas.height = pixelHeight;
     canvasWidth = width;
     canvasHeight = height;
-    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    skyRenderer.resize(width, height);
   }
 
   render();
@@ -354,11 +373,9 @@ function render(): void {
     ? formatSelectedStar(selectedStar)
     : text.tapStarHint;
 
-  renderSky(context, {
+  skyRenderer.render({
     catalog,
     moment,
-    width: canvasWidth,
-    height: canvasHeight,
     selectedStarId: state.selectedStarId,
     showConstellations: state.showConstellations,
     showLabels: state.showLabels

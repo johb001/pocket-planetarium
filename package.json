@@ -11,12 +11,14 @@
   },
   "devDependencies": {
     "@types/node": "^25.8.0",
+    "@types/three": "^0.184.1",
     "jsdom": "^25.0.1",
     "typescript": "^5.7.2",
     "vite": "^6.0.7",
     "vitest": "^2.1.8"
   },
   "dependencies": {
-    "astronomy-engine": "^2.1.19"
+    "astronomy-engine": "^2.1.19",
+    "three": "^0.184.0"
   }
 }
