@@ -141,6 +141,20 @@ canvas,
   min-width: 0;
 }
 
+.coordinate-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.error-message {
+  min-height: 1.1rem;
+  margin: 0;
+  color: var(--dock-danger);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 .dock-group,
 .control-group,
 .field-group,
@@ -360,6 +374,10 @@ input[type="radio"] {
   [data-control-row] {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .coordinate-grid {
+    grid-template-columns: 1fr;
   }
 
   button,

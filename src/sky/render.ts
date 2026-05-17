@@ -42,6 +42,19 @@ export function projectStar(
   width: number,
   height: number
 ): ProjectedStar {
+  if (star.visible === false) {
+    return {
+      id: star.id,
+      name: star.name,
+      note: star.note,
+      magnitude: star.magnitude,
+      hue: star.hue,
+      x: star.x,
+      y: star.y,
+      visible: false
+    };
+  }
+
   const safeWidth = Math.max(1, width);
   const safeHeight = Math.max(1, height);
   const radius = Math.min(safeWidth, safeHeight) * (0.5 - SKY_PADDING_RATIO);

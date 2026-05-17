@@ -6,6 +6,12 @@ export interface Star {
   y: number;
   magnitude: number;
   hue: number;
+  visible?: boolean;
+  rightAscensionHours?: number;
+  declinationDegrees?: number;
+  altitude?: number;
+  azimuth?: number;
+  kind?: SkyObjectKind;
 }
 
 export interface Constellation {
@@ -48,4 +54,18 @@ export interface AppState {
   showConstellations: boolean;
   showLabels: boolean;
   observations: Observation[];
+  locale: Locale;
+  observer: ObserverLocation;
+  observedAt: string;
+  errorMessage?: string;
 }
+
+export type Locale = "zh" | "en";
+
+export interface ObserverLocation {
+  latitude: number;
+  longitude: number;
+  label: string;
+}
+
+export type SkyObjectKind = "star" | "sun" | "moon" | "planet";

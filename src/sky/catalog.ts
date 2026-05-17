@@ -1,116 +1,98 @@
-import type { Constellation, Star, StarCatalog } from "../types";
+import type { Constellation, ObserverLocation, Star, StarCatalog } from "../types";
+import { equatorialToHorizontal, projectHorizontal } from "./coordinates";
+import { BRIGHT_STARS, type RealStar } from "./realCatalog";
 
-const STAR_COUNT = 84;
-const CONSTELLATION_SIZE = 7;
+export interface SkyCatalogContext {
+  observer: ObserverLocation;
+  observedAt: Date;
+}
 
-const STAR_NAMES = [
-  "Aster",
-  "Bellatrix",
-  "Caelum",
-  "Deneb",
-  "Elara",
-  "Fomal",
-  "Gemma",
-  "Hadar",
-  "Izar",
-  "Jabbah",
-  "Kaus",
-  "Lumen",
-  "Mira",
-  "Nashira",
-  "Orion",
-  "Polaris",
-  "Rigel",
-  "Sabik",
-  "Tania",
-  "Unuk",
-  "Vega",
-  "Wasat",
-  "Xuange",
-  "Yildun"
+const DEFAULT_OBSERVER: ObserverLocation = {
+  latitude: 22.3193,
+  longitude: 114.1694,
+  label: "Hong Kong"
+};
+
+const REAL_CONSTELLATIONS: Array<{ id: string; name: string; starIds: string[] }> = [
+  { id: "constellation-orion", name: "Orion", starIds: ["hyg-betelgeuse", "hyg-bellatrix", "hyg-rigel", "hyg-saiph"] },
+  { id: "constellation-winter-triangle", name: "Winter Triangle", starIds: ["hyg-sirius", "hyg-procyon", "hyg-betelgeuse"] },
+  { id: "constellation-summer-triangle", name: "Summer Triangle", starIds: ["hyg-vega", "hyg-deneb", "hyg-altair"] },
+  { id: "constellation-big-dipper", name: "Big Dipper", starIds: ["hyg-dubhe", "hyg-merak", "hyg-phecda", "hyg-megrez", "hyg-alioth", "hyg-mizar", "hyg-alkaid"] }
 ];
 
-const STAR_NOTES = [
-  "steady white pinprick",
-  "warm ember sparkle",
-  "blue twilight marker",
-  "quiet horizon guide",
-  "soft lantern point",
-  "clear chart anchor",
-  "faint silver glimmer"
-];
+export function createCatalog(_seed = 0): StarCatalog {
+  return createCatalogForSky({
+    observer: DEFAULT_OBSERVER,
+    observedAt: new Date("2026-01-01T14:00:00.000Z")
+  });
+}
 
-const CONSTELLATION_NAMES = [
-  "Lantern Arc",
-  "Compass Kite",
-  "Harbor Crown",
-  "Silver Reed",
-  "Ember Ladder",
-  "Glass Heron",
-  "Wayfinder Loop",
-  "Aurora Needle",
-  "Tide Hook",
-  "Moon Gate",
-  "Cinder Sail",
-  "North Thread"
-];
+export function createCatalogForSky(context: SkyCatalogContext): StarCatalog {
+  const stars = BRIGHT_STARS.map((star) => projectRealStar(star, context));
 
-function createRandom(seed: number): () => number {
-  let state = seed >>> 0;
-
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  return {
+    seed: 0,
+    stars,
+    constellations: createConstellations(stars)
   };
+}
+
+function projectRealStar(star: RealStar, context: SkyCatalogContext): Star {
+  const horizontal = equatorialToHorizontal({
+    rightAscensionHours: star.rightAscensionHours,
+    declinationDegrees: star.declinationDegrees,
+    observer: context.observer,
+    observedAt: context.observedAt
+  });
+  const projected = projectHorizontal(horizontal, 100, 100);
+
+  return {
+    id: star.id,
+    name: star.name,
+    note: star.catalogName,
+    x: round(projected.x),
+    y: round(projected.y),
+    magnitude: normalizeMagnitude(star.apparentMagnitude),
+    hue: colorIndexToHue(star.colorIndex),
+    visible: projected.visible,
+    rightAscensionHours: star.rightAscensionHours,
+    declinationDegrees: star.declinationDegrees,
+    altitude: round(horizontal.altitude),
+    azimuth: round(horizontal.azimuth),
+    kind: "star"
+  };
+}
+
+function createConstellations(stars: Star[]): Constellation[] {
+  const starIds = new Set(stars.map((star) => star.id));
+
+  return REAL_CONSTELLATIONS.map((constellation) => {
+    const availableStarIds = constellation.starIds.filter((starId) => starIds.has(starId));
+    const lines: Array<[string, string]> = availableStarIds
+      .slice(1)
+      .map((starId, index) => [availableStarIds[index], starId]);
+
+    return {
+      id: constellation.id,
+      name: constellation.name,
+      starIds: availableStarIds,
+      lines
+    };
+  }).filter((constellation) => constellation.starIds.length > 1 && constellation.lines.length > 0);
+}
+
+function normalizeMagnitude(apparentMagnitude: number): number {
+  return clamp((2.2 - apparentMagnitude) / 3.66, 0.08, 1);
+}
+
+function colorIndexToHue(colorIndex: number): number {
+  return clamp(222 - colorIndex * 62, 26, 228);
 }
 
 function round(value: number): number {
   return Math.round(value * 1000) / 1000;
 }
 
-function createStars(seed: number): Star[] {
-  const random = createRandom(seed);
-
-  return Array.from({ length: STAR_COUNT }, (_, index) => {
-    const band = index % CONSTELLATION_SIZE;
-    const row = Math.floor(index / CONSTELLATION_SIZE);
-    const name = STAR_NAMES[index % STAR_NAMES.length];
-
-    return {
-      id: `star-${String(index + 1).padStart(3, "0")}`,
-      name: `${name} ${row + 1}`,
-      note: STAR_NOTES[index % STAR_NOTES.length],
-      x: round(8 + band * 14 + random() * 6),
-      y: round(8 + row * 7 + random() * 4),
-      magnitude: round(0.18 + random() * 0.72),
-      hue: round((185 + random() * 150) % 360)
-    };
-  });
-}
-
-function createConstellations(): Constellation[] {
-  return CONSTELLATION_NAMES.map((name, index) => {
-    const start = index * CONSTELLATION_SIZE;
-    const starIds = Array.from({ length: CONSTELLATION_SIZE }, (_, offset) => {
-      return `star-${String(start + offset + 1).padStart(3, "0")}`;
-    });
-
-    return {
-      id: `constellation-${String(index + 1).padStart(2, "0")}`,
-      name,
-      starIds,
-      lines: starIds.slice(1).map((starId, offset) => [starIds[offset], starId])
-    };
-  });
-}
-
-export function createCatalog(seed = 42): StarCatalog {
-  return {
-    seed,
-    stars: createStars(seed),
-    constellations: createConstellations()
-  };
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
 }
