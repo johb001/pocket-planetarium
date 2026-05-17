@@ -82,6 +82,13 @@ canvas,
   max-width: none;
   background: #020407;
   touch-action: none;
+  cursor: grab;
+}
+
+canvas.is-dragging,
+.sky-canvas.is-dragging,
+[data-sky-canvas].is-dragging {
+  cursor: grabbing;
 }
 
 .sky-stage {

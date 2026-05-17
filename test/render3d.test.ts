@@ -1,5 +1,10 @@
 import { describe, expect, test } from "vitest";
-import { createDomeAtmosphereStars, projectStarToDome } from "../src/sky/render3d";
+import {
+  applyZoomDistance,
+  createDomeAtmosphereStars,
+  guideLineOpacity,
+  projectStarToDome
+} from "../src/sky/render3d";
 import type { Star } from "../src/types";
 
 const visibleStar: Star = {
@@ -40,5 +45,20 @@ describe("createDomeAtmosphereStars", () => {
     expect(first).toHaveLength(260);
     expect(uniqueDepths.size).toBeGreaterThan(12);
     expect(first.every((star) => star.position.z < -2)).toBe(true);
+  });
+});
+
+describe("3D interaction helpers", () => {
+  test("keeps wheel zoom within a comfortable range", () => {
+    expect(applyZoomDistance(18, -240)).toBeLessThan(18);
+    expect(applyZoomDistance(18, 240)).toBeGreaterThan(18);
+    expect(applyZoomDistance(12, -5000)).toBe(10);
+    expect(applyZoomDistance(27, 5000)).toBe(30);
+  });
+
+  test("keeps guide lines hidden by default and subtle when enabled", () => {
+    expect(guideLineOpacity(false)).toBe(0);
+    expect(guideLineOpacity(true)).toBeGreaterThan(0);
+    expect(guideLineOpacity(true)).toBeLessThan(0.12);
   });
 });

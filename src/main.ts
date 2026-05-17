@@ -34,7 +34,7 @@ const defaultObservedAt = new Date();
 const state: AppState = {
   nightValue: dateToNightValue(defaultObservedAt),
   selectedStarId: undefined,
-  showConstellations: true,
+  showConstellations: false,
   showLabels: true,
   observations: loadObservations(),
   locale: loadLocale(),

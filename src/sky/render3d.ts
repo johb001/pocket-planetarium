@@ -40,6 +40,8 @@ export interface SkyDomeRenderer {
 const DOME_RADIUS = 12;
 const BACKGROUND_STAR_COUNT = 700;
 const TAU = Math.PI * 2;
+const MIN_CAMERA_DISTANCE = 10;
+const MAX_CAMERA_DISTANCE = 30;
 
 export function projectStarToDome(star: Star, radius = DOME_RADIUS): DomeProjection {
   if (star.visible === false) {
@@ -101,6 +103,14 @@ export function createDomeAtmosphereStars(count = BACKGROUND_STAR_COUNT, rotatio
   return stars;
 }
 
+export function applyZoomDistance(currentDistance: number, wheelDeltaY: number): number {
+  return round(clamp(currentDistance + wheelDeltaY * 0.012, MIN_CAMERA_DISTANCE, MAX_CAMERA_DISTANCE));
+}
+
+export function guideLineOpacity(visible: boolean): number {
+  return visible ? 0.075 : 0;
+}
+
 export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -115,7 +125,8 @@ export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRendere
   scene.fog = new THREE.FogExp2(0x030713, 0.032);
 
   const camera = new THREE.PerspectiveCamera(56, 1, 0.1, 100);
-  camera.position.set(0, 0, 18);
+  let cameraDistance = 18;
+  camera.position.set(0, 0, cameraDistance);
   camera.lookAt(0, 0, -6);
 
   const root = new THREE.Group();
@@ -143,6 +154,7 @@ export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRendere
 
   const onPointerDown = (event: PointerEvent) => {
     canvas.setPointerCapture(event.pointerId);
+    canvas.classList.add("is-dragging");
     dragStart = {
       x: event.clientX,
       y: event.clientY,
@@ -162,18 +174,25 @@ export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRendere
     if (canvas.hasPointerCapture(event.pointerId)) {
       canvas.releasePointerCapture(event.pointerId);
     }
+    canvas.classList.remove("is-dragging");
     dragStart = undefined;
+  };
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault();
+    cameraDistance = applyZoomDistance(cameraDistance, event.deltaY);
   };
 
   canvas.addEventListener("pointerdown", onPointerDown);
   canvas.addEventListener("pointermove", onPointerMove);
   canvas.addEventListener("pointerup", onPointerUp);
   canvas.addEventListener("pointercancel", onPointerUp);
+  canvas.addEventListener("wheel", onWheel, { passive: false });
 
   const tick = () => {
     const time = performance.now();
     root.rotation.y = manualRotationY + Math.sin(time * 0.00012) * 0.075;
     root.rotation.x = manualRotationX + Math.sin(time * 0.00009) * 0.02;
+    camera.position.z += (cameraDistance - camera.position.z) * 0.16;
 
     if (latestOptions) {
       renderer.render(scene, camera);
@@ -195,7 +214,9 @@ export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRendere
       latestOptions = options;
       atmosphere.rotation.z = options.moment.rotation * 0.003;
       updateStars(starGroup, options.catalog.stars, options.selectedStarId, starTexture);
-      updateConstellationLines(lineGroup, options.catalog, options.showConstellations ?? true);
+      const guidesVisible = options.showConstellations ?? false;
+      setGridOpacity(gridGroup, guideLineOpacity(guidesVisible));
+      updateConstellationLines(lineGroup, options.catalog, guidesVisible);
       updateSceneColors(scene, glow, options.moment);
       renderer.render(scene, camera);
     },
@@ -204,6 +225,7 @@ export function createSkyDomeRenderer(canvas: HTMLCanvasElement): SkyDomeRendere
       canvas.removeEventListener("pointermove", onPointerMove);
       canvas.removeEventListener("pointerup", onPointerUp);
       canvas.removeEventListener("pointercancel", onPointerUp);
+      canvas.removeEventListener("wheel", onWheel);
       cancelAnimationFrame(animationFrame);
       disposeObject(root);
       starTexture.dispose();
@@ -252,7 +274,7 @@ function createGridGroup(): THREE.Group {
   const material = new THREE.LineBasicMaterial({
     color: 0x86a7d7,
     transparent: true,
-    opacity: 0.16,
+    opacity: guideLineOpacity(false),
     depthWrite: false
   });
 
@@ -270,6 +292,17 @@ function createGridGroup(): THREE.Group {
   }
 
   return group;
+}
+
+function setGridOpacity(group: THREE.Group, opacity: number): void {
+  group.traverse((child) => {
+    const line = child as THREE.Line;
+    const material = "material" in line ? line.material : undefined;
+    if (material instanceof THREE.LineBasicMaterial) {
+      material.opacity = opacity;
+      material.visible = opacity > 0;
+    }
+  });
 }
 
 function createEllipseLine(radiusX: number, radiusY: number, z: number, material: THREE.LineBasicMaterial): THREE.Line {
@@ -377,7 +410,7 @@ function updateConstellationLines(group: THREE.Group, catalog: StarCatalog, visi
   const material = new THREE.LineBasicMaterial({
     color: 0x8db7ff,
     transparent: true,
-    opacity: 0.26,
+    opacity: 0.12,
     depthWrite: false
   });
 
